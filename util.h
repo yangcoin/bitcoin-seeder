@@ -26,7 +26,7 @@
 #define WSAENOTSOCK         EBADF
 #define INVALID_SOCKET      (SOCKET)(~0)
 #define SOCKET_ERROR        -1
-
+#define DbgMsg(msg , args...) printf("[%s:%d]  %s() :: " msg "\n" ,  __FILE__,__LINE__,__func__ , ##args)
 // Wrapper to automatically initialize mutex
 class CCriticalSection
 {
