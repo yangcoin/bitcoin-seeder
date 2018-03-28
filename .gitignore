@@ -1,3 +1,6 @@
 *.o
 dnsseed*
 dnsstats.log
+*.log
+*.dat
+*.dump

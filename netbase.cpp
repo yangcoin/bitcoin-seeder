@@ -321,8 +321,10 @@ bool static ConnectSocketDirectly(const CService &addrConnect, SOCKET& hSocketRe
     }
 
     SOCKET hSocket = socket(((struct sockaddr*)&sockaddr)->sa_family, SOCK_STREAM, IPPROTO_TCP);
-    if (hSocket == INVALID_SOCKET)
+    if (hSocket == INVALID_SOCKET) { 
+        DbgMsg(" invalid socket");
         return false;
+    }
 #ifdef SO_NOSIGPIPE
     int set = 1;
     setsockopt(hSocket, SOL_SOCKET, SO_NOSIGPIPE, (void*)&set, sizeof(int));
@@ -337,6 +339,7 @@ bool static ConnectSocketDirectly(const CService &addrConnect, SOCKET& hSocketRe
 #endif
     {
         closesocket(hSocket);
+        DbgMsg(" invalid socket");
         return false;
     }
 
@@ -407,6 +410,7 @@ bool static ConnectSocketDirectly(const CService &addrConnect, SOCKET& hSocketRe
 #endif
     {
         closesocket(hSocket);
+        DbgMsg(" invalid socket");
         return false;
     }
 
@@ -470,7 +474,7 @@ bool ConnectSocket(const CService &addrDest, SOCKET& hSocketRet, int nTimeout)
     // do socks negotiation
     switch (proxy.second) {
     case 4:
-        if (!Socks4(addrDest, hSocket))
+        if (!Socks4(addrDest, hSocket)) 
             return false;
         break;
     case 5:

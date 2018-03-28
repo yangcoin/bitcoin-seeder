@@ -16,19 +16,30 @@ using namespace std;
 
 bool fTestNet = false;
 
-static const string yng_seeds[] = {"seed-yng.bitchk.com", "yng001.bitchk.com", ""};
+static const string yng_seeds[] = { "chain001.bitchk.com", "seed-yng.bitchk.com", "yng001.bitchk.com", ""};
+// static const string yng_seeds[] = {"127.0.0.1", ""};
 static const string qac_seeds[] = {"seed-qac.bitchk.com", "qac001.bitchk.com", ""};
 static const string qct_seeds[] = {"seed-qct.bitchk.com", "qct001.bitchk.com", ""};
 static const string ssc_seeds[] = {"seed-ssc.bitchk.com", "ssc001.bitchk.com", ""};
 static const string ven_seeds[] = {"seed-ven.bitchk.com", "ven001.bitchk.com", ""};
 static const string pax_seeds[] = {"seed-pax.bitchk.com", "pax001.bitchk.com", ""};
+static const string btc_seeds[] = {"dnsseed.bluematt.me", "bitseed.xf2.org", "dnsseed.bitcoin.dashjr.org", "seed.bitcoin.sipa.be", ""};
+
+static const int yng_prt_version = 70002;
+static const int qac_prt_version = 70002;
+static const int pax_prt_version = 70002;
+static const int qct_prt_version = 70002;
+static const int ssc_prt_version = 70002;
+static const int ven_prt_version = 70002;
+static const int btc_prt_version = 60000;
 
 static const unsigned char ven_msg_start[4] = {0x76, 0x65, 0x6e, 0x74};
 static const unsigned char qac_msg_start[4] = {0x51, 0x55, 0x41, 0x53};
 static const unsigned char qct_msg_start[4] = {0x71, 0x74, 0x63, 0x79};
 static const unsigned char ssc_msg_start[4] = {0x53, 0x45, 0x41, 0x52};
 static const unsigned char pax_msg_start[4] = {0x50, 0x41, 0x58, 0x43};
-static const unsigned char yng_msg_start[4] = {0x71, 0x74, 0x63, 0x79};
+static const unsigned char yng_msg_start[4] = {0x59, 0x41, 0x4e, 0x47};
+static const unsigned char btc_msg_start[4] = {0xf9, 0xbe, 0xb4, 0xd9};
 
 static const unsigned short ven_p2p_port = 13101;
 static const unsigned short qac_p2p_port = 13201;
@@ -36,7 +47,9 @@ static const unsigned short qct_p2p_port = 13301;
 static const unsigned short ssc_p2p_port = 13401;
 static const unsigned short pax_p2p_port = 13501;
 static const unsigned short yng_p2p_port = 23001;
+static const unsigned short btc_p2p_port = 8333;
 
+int PROTOCOL_VERSION = 60000;
 static const string testnet_seeds[] = {"testnet-seed.alexykot.me",
                                        "testnet-seed.bitcoin.petertodd.org",
                                        "testnet-seed.bluematt.me",
@@ -56,13 +69,16 @@ public:
   const char *mbox;
   const char *ns;
   const char *host;
+  const char *sym;
   const char *tor;
   const char *ipv4_proxy;
   const char *ipv6_proxy;
 
   std::set<uint64_t> filter_whitelist;
 
-  CDnsSeedOpts() : nThreads(96), nDnsThreads(4), nPort(53), mbox(NULL), ns(NULL), host(NULL), tor(NULL), fUseTestNet(false), fWipeBan(false), fWipeIgnore(false), ipv4_proxy(NULL), ipv6_proxy(NULL) {}
+  CDnsSeedOpts() : nThreads(20),
+                   nDnsThreads(4), nPort(53),
+                   mbox(NULL), ns(NULL), host(NULL), tor(NULL), fUseTestNet(false), fWipeBan(false), fWipeIgnore(false), ipv4_proxy(NULL), ipv6_proxy(NULL) {}
 
   void ParseCommandLine(int argc, char **argv)
   {
@@ -83,6 +99,7 @@ public:
                               "--testnet       Use testnet\n"
                               "--wipeban       Wipe list of banned nodes\n"
                               "--wipeignore    Wipe list of ignored nodes\n"
+                              "--sym    symbol yng,qct...\n"
                               "-?, --help      Show this text\n"
                               "\n";
     bool showHelp = false;
@@ -103,10 +120,11 @@ public:
           {"testnet", no_argument, &fUseTestNet, 1},
           {"wipeban", no_argument, &fWipeBan, 1},
           {"wipeignore", no_argument, &fWipeBan, 1},
+          {"sym", required_argument, 0, 's'},
           {"help", no_argument, 0, 'h'},
           {0, 0, 0, 0}};
       int option_index = 0;
-      int c = getopt_long(argc, argv, "h:n:m:t:p:d:o:i:k:w:", long_options, &option_index);
+      int c = getopt_long(argc, argv, "h:n:m:t:p:d:o:i:k:w:s:", long_options, &option_index);
       if (c == -1)
         break;
       switch (c)
@@ -114,6 +132,11 @@ public:
       case 'h':
       {
         host = optarg;
+        break;
+      }
+      case 's':
+      {
+        sym = optarg;
         break;
       }
 
@@ -231,6 +254,7 @@ extern "C" void *ThreadCrawler(void *data)
       wait *= 1000;
       wait += rand() % (500 * *nThreads);
       Sleep(wait);
+      // Sleep(100);
       continue;
     }
     vector<CAddress> addr;
@@ -412,9 +436,10 @@ int StatCompare(const CAddrReport &a, const CAddrReport &b)
   }
 }
 
-extern "C" void *ThreadDumper(void *)
+extern "C" void *ThreadDumper(void * arg)
 {
   int count = 0;
+  CDnsSeedOpts *opts = (CDnsSeedOpts *)arg;
   do
   {
     Sleep(100000 << count); // First 100s, than 200s, 400s, 800s, 1600s, and then 3200s forever
@@ -423,16 +448,26 @@ extern "C" void *ThreadDumper(void *)
     {
       vector<CAddrReport> v = db.GetAll();
       sort(v.begin(), v.end(), StatCompare);
-      FILE *f = fopen("dnsseed.dat.new", "w+");
+      
+      char newDat[80] = {};
+      char orgDat[80] = {};
+      char logDat[80] = {};
+      char dumpDat[80] = {};
+      sprintf(newDat,"%s.dnsssed.dat.new", opts->sym);
+      sprintf(orgDat,"%s.dnsssed.dat", opts->sym);
+      sprintf(logDat,"%s.dnsssed.log", opts->sym);
+      sprintf(dumpDat,"%s.dnsssed.dump", opts->sym);
+      
+      FILE *f = fopen(newDat, "w+");
       if (f)
       {
         {
           CAutoFile cf(f);
           cf << db;
         }
-        rename("dnsseed.dat.new", "dnsseed.dat");
+        rename(newDat,orgDat);
       }
-      FILE *d = fopen("dnsseed.dump", "w");
+      FILE *d = fopen(dumpDat, "w");
       fprintf(d, "# address                                        good  lastSuccess    %%(2h)   %%(8h)   %%(1d)   %%(7d)  %%(30d)  blocks      svcs  version\n");
       double stat[5] = {0, 0, 0, 0, 0};
       for (vector<CAddrReport>::const_iterator it = v.begin(); it < v.end(); it++)
@@ -446,7 +481,7 @@ extern "C" void *ThreadDumper(void *)
         stat[4] += rep.uptime[4];
       }
       fclose(d);
-      FILE *ff = fopen("dnsstats.log", "a");
+      FILE *ff = fopen( logDat, "a");
       fprintf(ff, "%llu %g %g %g %g %g\n", (unsigned long long)(time(NULL)), stat[0], stat[1], stat[2], stat[3], stat[4]);
       fclose(ff);
     }
@@ -465,14 +500,15 @@ extern "C" void *ThreadStats(void *)
     strftime(c, 256, "[%y-%m-%d %H:%M:%S]", tmp);
     CAddrDbStats stats;
     db.GetStats(stats);
-    if (first)
-    {
-      first = false;
-      printf("\n\n\n\x1b[3A");
-    }
-    else
-      printf("\x1b[2K\x1b[u");
-    printf("\x1b[s");
+    // if (first)
+    // {
+    //   first = false;
+    //   printf("\n\n\n\x1b[3A");
+    // }
+    // else
+    //   printf("\x1b[2K\x1b[u");
+    // printf("\x1b[s");
+    // printf("\n");
     uint64_t requests = 0;
     uint64_t queries = 0;
     for (unsigned int i = 0; i < dnsThread.size(); i++)
@@ -480,7 +516,16 @@ extern "C" void *ThreadStats(void *)
       requests += dnsThread[i]->dns_opt.nRequests;
       queries += dnsThread[i]->dbQueries;
     }
-    printf("%s %i/%i available (%i tried in %is, %i new, %i active), %i banned; %llu DNS requests, %llu db queries", c, stats.nGood, stats.nAvail, stats.nTracked, stats.nAge, stats.nNew, stats.nAvail - stats.nTracked - stats.nNew, stats.nBanned, (unsigned long long)requests, (unsigned long long)queries);
+    printf("%s %i/%i available (%i tried in %is, %i new, %i active), %i banned; %llu DNS requests, %llu db queries\n",
+           c,
+           stats.nGood,
+           stats.nAvail,
+           stats.nTracked, stats.nAge, stats.nNew,
+           stats.nAvail - stats.nTracked - stats.nNew,
+           stats.nBanned,
+           (unsigned long long)requests,
+           (unsigned long long)queries //
+    );
     Sleep(1000);
   } while (1);
   return nullptr;
@@ -491,20 +536,19 @@ extern "C" void *ThreadSeeder(void *)
   if (!fTestNet)
   {
     //ROOT
+
     db.Add(CService("chain001.etra.kr", GetDefaultPort()), true);
+    db.Add(CService("127.0.0.1", GetDefaultPort()), true);
   }
-  DbgMsg("seeder");
   do
   {
     for (int i = 0; seeds[i] != ""; i++)
     {
       vector<CNetAddr> ips;
       LookupHost(seeds[i].c_str(), ips);
-      DbgMsg("seeder %s", seeds[i].c_str());
       int j = 0;
       for (vector<CNetAddr>::iterator it = ips.begin(); it != ips.end(); it++)
       {
-        // DbgMsg("\tseeder %d %d" ,j++,GetDefaultPort());
         db.Add(CService(*it, GetDefaultPort()), true);
       }
     }
@@ -518,8 +562,78 @@ int main(int argc, char **argv)
   signal(SIGPIPE, SIG_IGN);
   setbuf(stdout, NULL);
   CDnsSeedOpts opts;
-
   opts.ParseCommandLine(argc, argv);
+  if (opts.sym == NULL || strlen(opts.sym) < 3)
+  {
+    printf("need symbol\n");
+    printf("use -s option\n");
+    exit(9);
+  }
+  DbgMsg("sym %s", opts.sym);
+  unsigned char *MSG_START = NULL;
+  if (strcmp(opts.sym, "ssc") == 0)
+  {
+    seeds = ssc_seeds;
+    DEFAULT_PORT = ssc_p2p_port;
+    PROTOCOL_VERSION = ssc_prt_version;
+    MSG_START = (unsigned char *)ssc_msg_start;
+  }
+  else if (strcmp(opts.sym, "yng") == 0)
+  {
+    seeds = yng_seeds;
+    DEFAULT_PORT = yng_p2p_port;
+    PROTOCOL_VERSION = yng_prt_version;
+    MSG_START = (unsigned char *)yng_msg_start;
+  }
+  else if (strcmp(opts.sym, "qac") == 0)
+  {
+    seeds = qac_seeds;
+    DEFAULT_PORT = qac_p2p_port;
+    PROTOCOL_VERSION = qac_prt_version;
+    MSG_START = (unsigned char *)qac_msg_start;
+  }
+  else if (strcmp(opts.sym, "pax") == 0)
+  {
+    seeds = pax_seeds;
+    DEFAULT_PORT = pax_p2p_port;
+    PROTOCOL_VERSION = pax_prt_version;
+    MSG_START = (unsigned char *)pax_msg_start;
+  }
+  else if (strcmp(opts.sym, "qct") == 0)
+  {
+    seeds = qct_seeds;
+    DEFAULT_PORT = qct_p2p_port;
+    PROTOCOL_VERSION = qct_prt_version;
+    MSG_START = (unsigned char *)qct_msg_start;
+  }
+  else if (strcmp(opts.sym, "ven") == 0)
+  {
+    seeds = ven_seeds;
+    DEFAULT_PORT = ven_p2p_port;
+    PROTOCOL_VERSION = ven_prt_version;
+    MSG_START = (unsigned char *)ven_msg_start;
+  }
+  else if (strcmp(opts.sym, "btc") == 0)
+  {
+    seeds = btc_seeds;
+    DEFAULT_PORT = btc_p2p_port;
+    PROTOCOL_VERSION = btc_prt_version;
+    MSG_START = (unsigned char *)btc_msg_start;
+  }
+  else
+  {
+    seeds = btc_seeds;
+    DEFAULT_PORT = btc_p2p_port;
+    PROTOCOL_VERSION = btc_prt_version;
+    MSG_START = (unsigned char *)btc_msg_start;
+  }
+  DbgMsg("xxxx %d", PROTOCOL_VERSION);
+  memcpy(pchMessageStart, MSG_START, 4);
+  DbgMsg("xxx");
+  // pchMessageStart[0] = MSG_START[0];
+  // pchMessageStart[1] = MSG_START[1];
+  // pchMessageStart[2] = MSG_START[2];
+  // pchMessageStart[3] = MSG_START[3];
   printf("Supporting whitelisted filters: ");
   for (std::set<uint64_t>::const_iterator it = opts.filter_whitelist.begin(); it != opts.filter_whitelist.end(); it++)
   {
@@ -583,7 +697,9 @@ int main(int argc, char **argv)
     fprintf(stderr, "No e-mail address set. Please use -m.\n");
     exit(1);
   }
-  FILE *f = fopen("dnsseed.dat", "r");
+  char datName[80]={};
+  sprintf(datName, "%s.dnsseed.dat" , opts.sym);
+  FILE *f = fopen(datName, "r");
   if (f)
   {
     printf("Loading dnsseed.dat...");
@@ -623,8 +739,8 @@ int main(int argc, char **argv)
   }
   pthread_attr_destroy(&attr_crawler);
   printf("done\n");
-  pthread_create(&threadStats, NULL, ThreadStats, NULL);
-  pthread_create(&threadDump, NULL, ThreadDumper, NULL);
+  pthread_create(&threadStats, NULL, ThreadStats, &opts);
+  pthread_create(&threadDump, NULL, ThreadDumper, &opts);
   void *res;
   pthread_join(threadDump, &res);
   return 0;
