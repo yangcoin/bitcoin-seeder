@@ -263,7 +263,6 @@ public:
   {
     bool res = true;
     if (!ConnectSocket(you, sock)) { 
-      DbgMsg("ConnectSocket fail");
       return false;
     }
     PushVersion();
@@ -290,7 +289,6 @@ public:
       if (ret != 1)
       {
         if (!doneAfter){ 
-          DbgMsg("x");
           res = false;
         }
         break;

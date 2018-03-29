@@ -86,8 +86,9 @@ int CAddrDb::Lookup_(const CService &ip)
 void CAddrDb::Good_(const CService &addr, int clientV, std::string clientSV, int blocks)
 {
   int id = Lookup_(addr);
-  if (id == -1)
+  if (id == -1) { 
     return;
+  }
   unkId.erase(id);
   banned.erase(addr);
   CAddrInfo &info = idToInfo[id];
@@ -95,10 +96,11 @@ void CAddrDb::Good_(const CService &addr, int clientV, std::string clientSV, int
   info.clientSubVersion = clientSV;
   info.blocks = blocks;
   info.Update(true);
+  
   if (info.IsGood() && goodId.count(id) == 0)
   {
     goodId.insert(id);
-    //    printf("%s: good; %i good nodes now\n", ToString(addr).c_str(), (int)goodId.size());
+    printf("%s: good; %i good nodes now\n", ToString(addr).c_str(), (int)goodId.size());
   }
   nDirty++;
   ourId.push_back(id);

@@ -41,15 +41,26 @@ static const unsigned char pax_msg_start[4] = {0x50, 0x41, 0x58, 0x43};
 static const unsigned char yng_msg_start[4] = {0x59, 0x41, 0x4e, 0x47};
 static const unsigned char btc_msg_start[4] = {0xf9, 0xbe, 0xb4, 0xd9};
 
-static const unsigned short ven_p2p_port = 13101;
-static const unsigned short qac_p2p_port = 13201;
-static const unsigned short qct_p2p_port = 13301;
-static const unsigned short ssc_p2p_port = 13401;
-static const unsigned short pax_p2p_port = 13501;
-static const unsigned short yng_p2p_port = 23001;
-static const unsigned short btc_p2p_port = 8333;
+static const int ven_req_height = 238379;
+static const int qac_req_height = 187138;
+static const int qct_req_height = 179783;
+static const int ssc_req_height = 13401;
+static const int pax_req_height = 177906;
+static const int yng_req_height = 63447;
+static const int btc_req_height = 238379;
+
+
+static const int ven_p2p_port = 13101;
+static const int qac_p2p_port = 13201;
+static const int qct_p2p_port = 13301;
+static const int ssc_p2p_port = 13401;
+static const int pax_p2p_port = 13501;
+static const int yng_p2p_port = 23001;
+static const int btc_p2p_port = 8333;
 
 int PROTOCOL_VERSION = 60000;
+int REQUIRE_HEIGHT = 350000;
+
 static const string testnet_seeds[] = {"testnet-seed.alexykot.me",
                                        "testnet-seed.bitcoin.petertodd.org",
                                        "testnet-seed.bluematt.me",
@@ -254,7 +265,9 @@ extern "C" void *ThreadCrawler(void *data)
       wait *= 1000;
       wait += rand() % (500 * *nThreads);
       Sleep(wait);
+      // DbgMsg("sleep... %d" , ips.size());
       // Sleep(100);
+      
       continue;
     }
     vector<CAddress> addr;
@@ -453,10 +466,10 @@ extern "C" void *ThreadDumper(void * arg)
       char orgDat[80] = {};
       char logDat[80] = {};
       char dumpDat[80] = {};
-      sprintf(newDat,"%s.dnsssed.dat.new", opts->sym);
-      sprintf(orgDat,"%s.dnsssed.dat", opts->sym);
-      sprintf(logDat,"%s.dnsssed.log", opts->sym);
-      sprintf(dumpDat,"%s.dnsssed.dump", opts->sym);
+      sprintf(newDat,"%s.dnsseed.dat.new", opts->sym);
+      sprintf(orgDat,"%s.dnsseed.dat", opts->sym);
+      sprintf(logDat,"%s.dnsseed.log", opts->sym);
+      sprintf(dumpDat,"%s.dnsseed.dump", opts->sym);
       
       FILE *f = fopen(newDat, "w+");
       if (f)
@@ -569,7 +582,7 @@ int main(int argc, char **argv)
     printf("use -s option\n");
     exit(9);
   }
-  DbgMsg("sym %s", opts.sym);
+  DbgMsg("symbol %s", opts.sym);
   unsigned char *MSG_START = NULL;
   if (strcmp(opts.sym, "ssc") == 0)
   {
@@ -577,6 +590,7 @@ int main(int argc, char **argv)
     DEFAULT_PORT = ssc_p2p_port;
     PROTOCOL_VERSION = ssc_prt_version;
     MSG_START = (unsigned char *)ssc_msg_start;
+    REQUIRE_HEIGHT = ssc_req_height;
   }
   else if (strcmp(opts.sym, "yng") == 0)
   {
@@ -584,6 +598,7 @@ int main(int argc, char **argv)
     DEFAULT_PORT = yng_p2p_port;
     PROTOCOL_VERSION = yng_prt_version;
     MSG_START = (unsigned char *)yng_msg_start;
+    REQUIRE_HEIGHT = yng_req_height;
   }
   else if (strcmp(opts.sym, "qac") == 0)
   {
@@ -591,6 +606,7 @@ int main(int argc, char **argv)
     DEFAULT_PORT = qac_p2p_port;
     PROTOCOL_VERSION = qac_prt_version;
     MSG_START = (unsigned char *)qac_msg_start;
+    REQUIRE_HEIGHT = qac_req_height;
   }
   else if (strcmp(opts.sym, "pax") == 0)
   {
@@ -598,6 +614,7 @@ int main(int argc, char **argv)
     DEFAULT_PORT = pax_p2p_port;
     PROTOCOL_VERSION = pax_prt_version;
     MSG_START = (unsigned char *)pax_msg_start;
+    REQUIRE_HEIGHT = pax_req_height;
   }
   else if (strcmp(opts.sym, "qct") == 0)
   {
@@ -605,6 +622,7 @@ int main(int argc, char **argv)
     DEFAULT_PORT = qct_p2p_port;
     PROTOCOL_VERSION = qct_prt_version;
     MSG_START = (unsigned char *)qct_msg_start;
+    REQUIRE_HEIGHT = qct_req_height;
   }
   else if (strcmp(opts.sym, "ven") == 0)
   {
@@ -612,6 +630,7 @@ int main(int argc, char **argv)
     DEFAULT_PORT = ven_p2p_port;
     PROTOCOL_VERSION = ven_prt_version;
     MSG_START = (unsigned char *)ven_msg_start;
+    REQUIRE_HEIGHT = ven_req_height;
   }
   else if (strcmp(opts.sym, "btc") == 0)
   {
@@ -627,9 +646,7 @@ int main(int argc, char **argv)
     PROTOCOL_VERSION = btc_prt_version;
     MSG_START = (unsigned char *)btc_msg_start;
   }
-  DbgMsg("xxxx %d", PROTOCOL_VERSION);
   memcpy(pchMessageStart, MSG_START, 4);
-  DbgMsg("xxx");
   // pchMessageStart[0] = MSG_START[0];
   // pchMessageStart[1] = MSG_START[1];
   // pchMessageStart[2] = MSG_START[2];

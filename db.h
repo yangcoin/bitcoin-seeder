@@ -13,10 +13,10 @@
 #define MIN_RETRY 1000
 
 #define REQUIRE_VERSION 70001
-
+extern int REQUIRE_HEIGHT;
 static inline int GetRequireHeight(const bool testnet = fTestNet)
 {
-  return testnet ? 500000 : 350000;
+  return testnet ? 500000 : REQUIRE_HEIGHT;
 }
 
 std::string static inline ToString(const CService &ip)
@@ -112,13 +112,21 @@ public:
     if (ip.GetPort() != GetDefaultPort())
       return false;
     if (!(services & NODE_NETWORK))
+    {
       return false;
+    }
     if (!ip.IsRoutable())
+    {
       return false;
+    }
     if (clientVersion && clientVersion < REQUIRE_VERSION)
+    {
       return false;
+    }
     if (blocks && blocks < GetRequireHeight())
+    {
       return false;
+    }
 
     if (total <= 3 && success * 2 >= total)
       return true;
@@ -133,7 +141,6 @@ public:
       return true;
     if (stat1M.reliability > 0.35 && stat1M.count > 32)
       return true;
-
     return false;
   }
   int GetBanTime() const
@@ -430,6 +437,7 @@ public:
     {
       for (int i = 0; i < ips.size(); i++)
       {
+
         if (ips[i].fGood)
         {
           Good_(ips[i].service, ips[i].nClientV, ips[i].strClientV, ips[i].nHeight);
