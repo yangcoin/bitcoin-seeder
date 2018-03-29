@@ -1,22 +1,52 @@
 <?php
+
 $domain ="bitchk.com";
-$name = "xseed";
 //subdomain e.g. name.domain.com 
-$number_of_records = 10;
+$number_of_records = 20;
 //maximum n A records with $name... 10 recommended 
 $user = "etra@etra.kr";
 //user name
 $key = "0a3b6e12f286eea46a3883c9020b0bc5ba7d1";
 //key for cloudflare api found in account settings
-$seed_dump = "/Users/user/dev/blockchain/yangcoin/bitcoin-seeder/pax.dnsseed.dump";
 //absolute path to dnsseed.dump in the nubits-seeder root directory 
 
+$args = getopt("p:n:s:");
+$name = $args[n];
+$symbol = $args[s];
+$port = $args[p];
+elog($port ,$name,$symbol);
+if(!$port || !$name ||!$symbol ) {
+	printf("\nneed args  -p=$port -n=$name -s=$symbol \n");
+	exit(0);
+}
+$seed_dump = "/Users/user/dev/blockchain/yangcoin/bitcoin-seeder/$symbol.dnsseed.dump";
 
-
-
-
-
-
+if (! function_exists('array_column')) {
+    function array_column(array $input, $columnKey, $indexKey = null) {
+        $array = array();
+        foreach ($input as $value) {
+            if ( !array_key_exists($columnKey, $value)) {
+                trigger_error("Key \"$columnKey\" does not exist in array");
+                return false;
+            }
+            if (is_null($indexKey)) {
+                $array[] = $value[$columnKey];
+            }
+            else {
+                if ( !array_key_exists($indexKey, $value)) {
+                    trigger_error("Key \"$indexKey\" does not exist in array");
+                    return false;
+                }
+                if ( ! is_scalar($value[$indexKey])) {
+                    trigger_error("Key \"$indexKey\" does not contain scalar value");
+                    return false;
+                }
+                $array[$value[$indexKey]] = $value[$columnKey];
+            }
+        }
+        return $array;
+    }
+}
 /*
 ######################################################################################################
 				The magic starts here - Don't alter anything below, unless you know what you're doing
@@ -80,19 +110,20 @@ $ip_numbers_in_file = count($ip_raw);
 
 while ($i2 < $ip_numbers_in_file) {
 	$ip_array_line = $ip_raw[$i2];
+	// elog($ip_array_line);
 	//r	ead line 
 	$ip_array_split = explode(":",$ip_array_line);
 	//e	xplode string at ":"
 	$ip = $ip_array_split[0];
+	
 	// 	[0] is the ip address of the line
 	
-	$pos = strpos($ip_array_split[1], "7890");
+	$pos = strpos($ip_array_split[1], $port);
 	//p	osition of 7890
 	$bool_pos=is_bool($pos);
 	//c	ustom ports (!= 7890) not allowed.
-	
 	if (!$bool_pos) {
-		$ip_array_split = str_replace("7890", "", $ip_array_split[1]);
+		$ip_array_split = str_replace($port, "", $ip_array_split[1]);
 		//r		emove port
 		$ip_array_split = trim($ip_array_split);
 		//r		emove spaces at the start
@@ -126,26 +157,18 @@ $number_of_name_domain_records = count($response_array["response"]["recs"]["objs
 //count dns entries with $name.$domain
 $entries=0;
 //entry counter
-elog(  " $number_of_name_domain_records $i3 ");
+
 
 while ($i3 < $number_of_name_domain_records)			{
-	
-	if($response_array["response"]["recs"]["objs"][$i3]["name"] == "$name.$domain" && $response_array["response"]["recs"]["objs"][$i3]["type"]==$type)
-										 {
-		error_log($response_array["response"]["recs"]["objs"][$i3]["name"] );
+	if($response_array["response"]["recs"]["objs"][$i3]["name"] == "$name.$domain" && $response_array["response"]["recs"]["objs"][$i3]["type"]==$type){
 		$entries++;
-		//e		ntries with record type A and $name.$domain
-		
 		$id_zone=$response_array["response"]["recs"]["objs"][$i3]["rec_id"];
 		$ip_zone=$response_array["response"]["recs"]["objs"][$i3]["content"];
-		
-		$dns_zone_array_while = array( //w		rite those matching dns records into an array
-																	'id' => $id_zone,
-																	'ip' => $ip_zone	
-																	);
-		
+		$dns_zone_array_while = array( 
+			'id' => $id_zone,
+			'ip' => $ip_zone	
+		);
 		array_push($dns_zone_array, $dns_zone_array_while);
-		
 	}
 	$i3++;
 }
@@ -162,20 +185,17 @@ if($entries<$number_of_records){
 if($number_of_records>$ip_array_available){
 	$difference=$number_of_records-$entries-($number_of_records-$ip_array_available);
 }
-elog($i4 , $difference);
+
 while($i4 < $difference)		{
 	$ip_new=$ip_array[$i5]["ip"];
 	$good_new=$ip_array[$i5]["good"];
-	
-	if ($good_new == 1) //o	nly re-write the dns entry if good == 1
-											{
+	if ($good_new == 1) {
 		$content_new=$ip_new;
-		
 		$write_new = $cf->rec_new($domain, $type, $name, $content_new);
 	}
 	
 	//e	rror handling if IP is already in table
-										$new_response_array=get_object_vars($write_new);
+	$new_response_array=get_object_vars($write_new);
 	$new_response_array_retry=$new_response_array;
 	
 	while($new_response_array_retry["msg"]=="The record already exists." && $end==false)
@@ -204,12 +224,13 @@ while($i4 < $difference)		{
 }
 
 //to many entries? delete!
-
+elog("diff $difference");
 while($difference < 0){
 	$diff_rev=($difference*-1)+$offset;
 	$id_diff=$response_array["response"]["recs"]["objs"][$diff_rev]["rec_id"];
 	
 	if($response_array["response"]["recs"]["objs"][$diff_rev]["type"]==$type && $response_array["response"]["recs"]["objs"][$diff_rev]["name"] == "$name.$domain"){
+		elog("delete $domain, $id_diff");
 		$delete=$cf->delete_dns_record($domain, $id_diff);
 		$difference++;
 	}
@@ -225,7 +246,7 @@ while ($i<$entries){
 	//r	eset end
 	$id_entry=$dns_zone_array[$i]["id"];
 	$ip_entry=$dns_zone_array[$i]["ip"];
-	elog($ip_array);
+	// elog($ip_entry ,$ip_array);
 	$hit=array_search($ip_entry, array_column($ip_array, 'ip'));
 	//s	earch for dns zone rec ip in ip_array tale
 	
@@ -267,10 +288,7 @@ while ($i<$entries){
 }
 
 function elog($arg, $arg1 = null, $tracePrint = true, $web = false) {
-	// 	$t = microtime ( true );
 	$trace = debug_backtrace ();
-	
-	// 	$micro = sprintf ( "%06d", ($t - floor ( $t )) * 1000000 );
 	
 	$traceLog = '';
 	if ($tracePrint) {
@@ -281,11 +299,11 @@ function elog($arg, $arg1 = null, $tracePrint = true, $web = false) {
 	$var1 = is_string ( $arg ) ? $arg : var_export ( $arg, true );
 	$var2 = isset ( $arg1 ) ? (is_string ( $arg1 ) ? $arg1 : var_export ( $arg1, true )) : null;
 	if (isset ( $var2 ))
-								$var2 = "::" . $var2;
+		$var2 = "::" . $var2;
 	if ($web) {
 		echo "<pre>" . $traceLog . "=> " . $var1 . $var2 . "</pre>";
 	}
 	else
-				error_log ( $traceLog . "=> " . $var1 . $var2 );
+		error_log ( $traceLog . "=> " . $var1 . $var2 );
 }
 ?>

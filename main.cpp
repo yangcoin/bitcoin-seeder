@@ -486,7 +486,21 @@ extern "C" void *ThreadDumper(void * arg)
       for (vector<CAddrReport>::const_iterator it = v.begin(); it < v.end(); it++)
       {
         CAddrReport rep = *it;
-        fprintf(d, "%-47s  %4d  %11" PRId64 "  %6.2f%% %6.2f%% %6.2f%% %6.2f%% %6.2f%%  %6i  %08" PRIx64 "  %5i \"%s\"\n", rep.ip.ToString().c_str(), (int)rep.fGood, rep.lastSuccess, 100.0 * rep.uptime[0], 100.0 * rep.uptime[1], 100.0 * rep.uptime[2], 100.0 * rep.uptime[3], 100.0 * rep.uptime[4], rep.blocks, rep.services, rep.clientVersion, rep.clientSubVersion.c_str());
+        fprintf(d, "%-47s  %4d  %11" PRId64 "  %6.2f%% %6.2f%% %6.2f%% %6.2f%% %6.2f%%  %6i  %08" PRIx64 "  %5i \"%s\"\n", 
+            rep.ip.ToString().c_str(), 
+            (int)rep.fGood,
+            rep.lastSuccess, 
+            100.0 * rep.uptime[0], 
+            100.0 * rep.uptime[1], 
+            100.0 * rep.uptime[2], 
+            100.0 * rep.uptime[3], 
+            100.0 * rep.uptime[4], 
+            rep.blocks, 
+            rep.services, 
+            rep.clientVersion, 
+            rep.clientSubVersion.c_str()
+        );
+        
         stat[0] += rep.uptime[0];
         stat[1] += rep.uptime[1];
         stat[2] += rep.uptime[2];
@@ -549,9 +563,7 @@ extern "C" void *ThreadSeeder(void *)
   if (!fTestNet)
   {
     //ROOT
-
     db.Add(CService("chain001.etra.kr", GetDefaultPort()), true);
-    db.Add(CService("127.0.0.1", GetDefaultPort()), true);
   }
   do
   {
