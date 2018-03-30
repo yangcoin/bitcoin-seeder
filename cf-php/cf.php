@@ -107,7 +107,7 @@ if(isset($response_array["err_code"])){
 $ip_raw = file($seed_dump);
 //read seed_dump into array
 $ip_numbers_in_file = count($ip_raw);
-
+elog($ip_numbers_in_file);
 while ($i2 < $ip_numbers_in_file) {
 	$ip_array_line = $ip_raw[$i2];
 	// elog($ip_array_line);
